@@ -4,10 +4,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 
-// เรียกไฟล์ db.js ที่อยู่ใน src เดียวกัน
+// เรียกไฟล์ db.js
 require('./db'); 
 
-// เรียก rateLimiters.js จากโฟลเดอร์ src เดียวกัน
+// เรียก rateLimiters.js
 const { apiLimiter, authLimiter, moneyLimiter, otpLimiter } = require('./rateLimiters');
 
 // เรียกไฟล์ในโฟลเดอร์ routes
@@ -20,41 +20,38 @@ const adminRoutes = require('./routes/admin');
 const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
-const isProd = process.env.NODE_ENV === 'production';
 
-// Trust proxy (จำเป็นสำหรับ Render / Heroku เพื่อให้ Rate Limit อ่าน IP ถูกต้อง)
+// Trust proxy สำหรับ Render/Heroku ให้รวบรวม IP ถูกต้อง
 app.set('trust proxy', 1);
 
-// ===== 1. ปลดล็อก CORS ให้รองรับ Netlify และทุกโดเมน =====
+// ===== 1. ปลดล็อก CORS สมบูรณ์แบบ (ต้องอยู่บนสุดเสมอ) =====
 app.use(
   cors({
-    origin: '*', // ปลดล็อกให้ Netlify ยิง API เข้ามาได้โดยไม่ติด Failed to fetch
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false
   })
 );
 
-// ===== 2. ตั้งค่า Helmet Security Headers ไม่ให้บล็อกการดึงข้อมูล =====
+// จัดการ OPTIONS Preflight Requests ล่วงหน้าเพื่อไม่ให้ติด CORS Block
+app.options('*', cors());
+
+// ===== 2. Helmet Security Headers (เปิดทางให้ API) =====
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
-    contentSecurityPolicy: false, // ปิด CSP ชั่วคราวเพื่อป้องกัน บล็อกภาพ/API จากโดเมนต่างที่
+    contentSecurityPolicy: false,
   })
 );
 
-// Middleware สำหรับแปลง Body เป็น JSON
+// Middleware สำหรับแปลง Body
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ใช้ Rate Limiters
-app.use('/api/', apiLimiter);
-app.use('/api/auth/', authLimiter);
-app.use('/api/wallet/', moneyLimiter);
-app.use('/api/otp/', otpLimiter);
-
-// ===== 3. Routes สำหรับ API =====
-app.use('/api/auth', authRoutes);
-app.use('/api/wallet', walletRoutes);
+// ===== 3. Routes สำหรับ API (ย้ายขึ้นมาก่อน Rate Limit หนาๆ เพื่อป้องกัน Failed to Fetch) =====
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/wallet', moneyLimiter, walletRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);

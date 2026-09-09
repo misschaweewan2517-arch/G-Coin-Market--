@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>แผงควบคุมแอดมิน — G-Coin Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="aurora-bg"></div><div class="aurora-orb"></div><div class="liquid-grain"></div>
+<div class="topnav"><div id="nav-mount"></div></div>
+
+<div class="container">
+  <div class="page-head">
+    <h1>แผงควบคุมแอดมิน</h1>
+    <p style="color:var(--text-1); max-width:70ch;">
+      การปรับยอดเหรียญโดยแอดมินจะเข้าไปที่ "ยอดเหรียญโบนัส" เท่านั้น ใช้ซื้อสินค้าในระบบได้ แต่ไม่สามารถถอนเป็นเงินจริงได้
+      — ป้องกันไม่ให้การปรับยอดกลายเป็นช่องทางสร้างเงินจริงโดยไม่มีที่มา ทุกการปรับยอดถูกบันทึกลง Audit Log แบบแก้ไขไม่ได้
+    </p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="mint">ปรับยอดเหรียญ</button>
+    <button class="tab-btn" data-tab="withdrawals">คำขอถอนเงิน</button>
+    <button class="tab-btn" data-tab="users">ผู้ใช้งานทั้งหมด</button>
+    <button class="tab-btn" data-tab="audit">Audit Log</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-mint">
+    <div class="glass form-card" style="max-width:480px; margin-left:0;">
+      <h3>ปรับยอดเหรียญโบนัส</h3>
+      <div class="field"><label>Username ผู้ใช้เป้าหมาย</label><input id="mint-username" placeholder="username" /></div>
+      <div class="field"><label>จำนวนเหรียญ (ใส่ค่าลบเพื่อหัก)</label><input id="mint-amount" type="number" placeholder="เช่น 500 หรือ -200" /></div>
+      <div class="field"><label>เหตุผล (จำเป็นต้องระบุ)</label><textarea id="mint-reason" rows="2" placeholder="เช่น ชดเชยปัญหาระบบ, รางวัลกิจกรรม..."></textarea></div>
+      <button class="btn btn-primary btn-block" id="mint-btn">บันทึกการปรับยอด</button>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-withdrawals">
+    <div class="glass" style="padding:20px; overflow-x:auto;">
+      <table>
+        <thead><tr><th>วันที่</th><th>ผู้ขาย</th><th>เหรียญ</th><th>ยอดรับสุทธิ</th><th>ช่องทาง</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="withdrawals-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-users">
+    <div class="glass" style="padding:20px; overflow-x:auto;">
+      <table>
+        <thead><tr><th>ID</th><th>Username</th><th>สิทธิ์</th><th>เหรียญจริง</th><th>เหรียญโบนัส</th><th>สมัครเมื่อ</th></tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-audit">
+    <div class="glass" style="padding:20px; overflow-x:auto;">
+      <table>
+        <thead><tr><th>วันที่</th><th>แอดมิน</th><th>การกระทำ</th><th>เป้าหมาย</th><th>จำนวน</th><th>เหตุผล</th></tr></thead>
+        <tbody id="audit-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>© 2026 G-Coin Market. All rights reserved.</footer>
+
+<script src="js/app.js"></script>
+<script>
+if (!requireAdminPage()) { /* redirected */ }
+
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+  });
+});
+
+document.getElementById('mint-btn').addEventListener('click', async () => {
+  const username = document.getElementById('mint-username').value.trim();
+  const amount = Number(document.getElementById('mint-amount').value);
+  const reason = document.getElementById('mint-reason').value.trim();
+  if (!username || !amount || !reason) return toast('กรุณากรอกข้อมูลให้ครบ', 'error');
+
+  const ok = await swalConfirm(
+    'ยืนยันการปรับยอดเหรียญ',
+    `${amount > 0 ? 'เพิ่ม' : 'หัก'} ${Math.abs(amount).toLocaleString()} G-Coins (โบนัส) ให้ ${username}`,
+    'ยืนยัน'
+  );
+  if (!ok) return;
+
+  try {
+    await api('/admin/mint', { method: 'POST', body: { username, amount, reason } });
+    await swalSuccess('ปรับยอดสำเร็จ', 'บันทึกลง Audit Log เรียบร้อยแล้ว');
+    document.getElementById('mint-username').value = '';
+    document.getElementById('mint-amount').value = '';
+    document.getElementById('mint-reason').value = '';
+    loadUsers(); loadAudit();
+  } catch (err) {
+    swalError('ปรับยอดไม่สำเร็จ', err.message);
+  }
+});
+
+async function loadWithdrawals() {
+  const { withdrawals } = await api('/admin/withdrawals');
+  document.getElementById('withdrawals-tbody').innerHTML = withdrawals.map((w) => `
+    <tr>
+      <td>${w.created_at}</td>
+      <td>${escapeHtml(w.seller_username)}</td>
+      <td>${w.coin_amount.toLocaleString()}</td>
+      <td>${w.payout_thb.toLocaleString()} บาท</td>
+      <td>${w.promptpay_id ? 'พร้อมเพย์: ' + escapeHtml(w.promptpay_id) : escapeHtml((w.bank_name || '') + ' ' + (w.bank_account_number || ''))}</td>
+      <td>${statusBadge(w.status)}</td>
+      <td>${w.status === 'pending' ? `
+        <button class="btn btn-sm btn-primary approve-btn" data-id="${w.id}">อนุมัติ</button>
+        <button class="btn btn-sm btn-danger reject-btn" data-id="${w.id}">ปฏิเสธ</button>` : ''}
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" style="color:var(--text-2)">ไม่มีรายการ</td></tr>';
+
+  document.querySelectorAll('.approve-btn').forEach((b) => b.addEventListener('click', () => approveWithdrawal(b.dataset.id)));
+  document.querySelectorAll('.reject-btn').forEach((b) => b.addEventListener('click', () => rejectWithdrawal(b.dataset.id)));
+}
+
+async function approveWithdrawal(id) {
+  const ok = await swalConfirm('อนุมัติการถอนเงิน?', 'ยืนยันว่าได้โอนเงินจริงให้ผู้ขายแล้ว', 'อนุมัติ');
+  if (!ok) return;
+  try {
+    await api(`/admin/withdrawals/${id}/approve`, { method: 'POST' });
+    toast('อนุมัติแล้ว');
+    loadWithdrawals(); loadAudit();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function rejectWithdrawal(id) {
+  const { value: reason } = await Swal.fire({
+    title: 'เหตุผลที่ปฏิเสธ', input: 'text', showCancelButton: true,
+    confirmButtonText: 'ปฏิเสธคำขอ', cancelButtonText: 'ยกเลิก', background: 'transparent',
+    customClass: { popup: 'swal-glass-popup', title: 'swal-glass-title', confirmButton: 'swal-glass-confirm', cancelButton: 'swal-glass-cancel' },
+  });
+  if (reason === undefined) return;
+  try {
+    await api(`/admin/withdrawals/${id}/reject`, { method: 'POST', body: { reason } });
+    toast('ปฏิเสธคำขอแล้ว เหรียญถูกคืนให้ผู้ขาย');
+    loadWithdrawals(); loadAudit();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function loadUsers() {
+  const { users } = await api('/admin/users');
+  document.getElementById('users-tbody').innerHTML = users.map((u) => `
+    <tr>
+      <td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${u.role === 'admin' ? '<span class="badge-admin">ADMIN</span>' : 'user'}</td>
+      <td>${u.balance_real.toLocaleString()}</td><td>${u.balance_bonus.toLocaleString()}</td><td>${u.created_at}</td>
+    </tr>`).join('');
+}
+
+async function loadAudit() {
+  const { audit_log } = await api('/admin/audit-log');
+  const actionLabel = { mint: 'เพิ่มเหรียญ', deduct: 'หักเหรียญ', approve_withdrawal: 'อนุมัติถอนเงิน', reject_withdrawal: 'ปฏิเสธถอนเงิน' };
+  document.getElementById('audit-tbody').innerHTML = audit_log.map((a) => `
+    <tr>
+      <td>${a.created_at}</td><td>${escapeHtml(a.admin_username)}</td><td>${actionLabel[a.action] || a.action}</td>
+      <td>${escapeHtml(a.target_username || '-')}</td><td>${a.amount ?? '-'}</td><td>${escapeHtml(a.reason || '')}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="color:var(--text-2)">ยังไม่มีรายการ</td></tr>';
+}
+
+refreshSessionUser().then(renderNav);
+loadWithdrawals();
+loadUsers();
+loadAudit();
+</script>
+</body>
+</html>

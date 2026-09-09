@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>เข้าสู่ระบบ — G-Coin Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="aurora-bg"></div><div class="aurora-orb"></div><div class="liquid-grain"></div>
+<div class="auth-shell">
+  <form class="glass auth-card" id="login-form">
+    <h2>เข้าสู่ระบบ</h2>
+    <p class="auth-sub">ยินดีต้อนรับกลับสู่ G-Coin Market</p>
+
+    <div class="field">
+      <label for="username">ชื่อผู้ใช้</label>
+      <input id="username" name="username" autocomplete="username" required />
+    </div>
+    <div class="field">
+      <label for="password">รหัสผ่าน</label>
+      <div class="pw-wrap">
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <button type="button" class="pw-toggle" id="pw-toggle" aria-label="แสดงรหัสผ่าน">👁</button>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">เข้าสู่ระบบ</button>
+    <p class="auth-switch"><a href="forgot-password.html">ลืมรหัสผ่าน?</a></p>
+    <p class="auth-switch">ยังไม่มีบัญชี? <a href="register.html">สมัครสมาชิก</a></p>
+  </form>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+document.getElementById('pw-toggle').addEventListener('click', () => {
+  const input = document.getElementById('password');
+  input.type = input.type === 'password' ? 'text' : 'password';
+});
+
+// If already logged in, skip straight past this page.
+if (Session.token) location.href = 'index.html';
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  showOverlay('กำลังเข้าสู่ระบบ...');
+  try {
+    const { token, user } = await api('/auth/login', { method: 'POST', body: { username, password } });
+    Session.token = token;
+    Session.user = user;
+    toast(`ยินดีต้อนรับ ${user.username}`);
+    location.href = 'index.html';
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    hideOverlay();
+  }
+});
+</script>
+</body>
+</html>

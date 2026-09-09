@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>G-Coin Market — ตลาดซื้อขายไอดี/คีย์เกม</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="aurora-bg"></div><div class="aurora-orb"></div><div class="liquid-grain"></div>
+<div class="topnav"><div id="nav-mount"></div></div>
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <h1>ซื้อขายไอดีและคีย์เกม<br/>ปลอดภัย รวดเร็ว ในที่เดียว</h1>
+      <p class="lead">Roblox · RoV · Valorant · MLBB — เติม G-Coins แล้วเลือกซื้อไอดีที่ตรงใจ ระบบตรวจสอบยอดเงินอัตโนมัติ ป้องกันการซื้อซ้ำซ้อน และเปิดเผยข้อมูลบัญชีให้เฉพาะผู้ซื้อที่ชำระเงินสำเร็จเท่านั้น</p>
+      <div class="hero-actions">
+        <a href="#market" class="btn btn-primary">เลือกซื้อสินค้า</a>
+        <a href="sell.html" class="btn btn-ghost">เริ่มลงขาย</a>
+      </div>
+    </div>
+    <div class="glass hero-stat-card">
+      <div style="color:var(--text-1); font-size:0.85rem;">ภาพรวมตลาดตอนนี้</div>
+      <div class="hero-stats">
+        <div class="hero-stat"><b id="stat-total">–</b><span>สินค้าที่กำลังขาย</span></div>
+        <div class="hero-stat"><b id="stat-cats">4</b><span>หมวดหมู่เกม</span></div>
+      </div>
+      <div class="chip-row mt-24">
+        <span class="chip" data-cat="roblox"><span class="swatch"></span>Roblox</span>
+        <span class="chip" data-cat="rov"><span class="swatch"></span>RoV</span>
+        <span class="chip" data-cat="valorant"><span class="swatch"></span>Valorant</span>
+        <span class="chip" data-cat="mlbb"><span class="swatch"></span>MLBB</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container" id="market">
+  <div class="market-layout">
+    <aside class="glass filter-panel">
+      <div class="filter-group">
+        <h4>หมวดหมู่</h4>
+        <div class="chip-row" id="filter-cats" style="flex-direction:column; align-items:flex-start;">
+          <span class="chip active" data-cat="">ทั้งหมด</span>
+          <span class="chip" data-cat="roblox"><span class="swatch"></span>Roblox</span>
+          <span class="chip" data-cat="rov"><span class="swatch"></span>RoV</span>
+          <span class="chip" data-cat="valorant"><span class="swatch"></span>Valorant</span>
+          <span class="chip" data-cat="mlbb"><span class="swatch"></span>MLBB</span>
+        </div>
+      </div>
+      <div class="filter-group">
+        <h4>ค้นหา</h4>
+        <input id="filter-q" placeholder="ชื่อสินค้า..." />
+      </div>
+      <div class="filter-group">
+        <h4>ช่วงราคา (G-Coins)</h4>
+        <div style="display:flex; gap:8px;">
+          <input id="filter-min" type="number" placeholder="ต่ำสุด" />
+          <input id="filter-max" type="number" placeholder="สูงสุด" />
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="filter-apply">กรองสินค้า</button>
+    </aside>
+
+    <div>
+      <div id="market-grid" class="card-grid"><div class="empty-state">กำลังโหลดสินค้า...</div></div>
+    </div>
+  </div>
+</div>
+
+<footer>© 2026 G-Coin Market. All rights reserved.</footer>
+
+<script src="js/app.js"></script>
+<script>
+let activeCategory = '';
+
+async function loadListings() {
+  const grid = document.getElementById('market-grid');
+  grid.innerHTML = '<div class="empty-state">กำลังโหลดสินค้า...</div>';
+  const params = new URLSearchParams();
+  if (activeCategory) params.set('category', activeCategory);
+  const q = document.getElementById('filter-q').value.trim();
+  const min = document.getElementById('filter-min').value;
+  const max = document.getElementById('filter-max').value;
+  if (q) params.set('q', q);
+  if (min) params.set('min_price', min);
+  if (max) params.set('max_price', max);
+
+  try {
+    const { listings } = await api(`/listings?${params.toString()}`);
+    document.getElementById('stat-total').textContent = listings.length;
+    if (!listings.length) {
+      grid.innerHTML = '<div class="empty-state">ยังไม่มีสินค้าตรงเงื่อนไข ลองปรับตัวกรองดูนะ</div>';
+      return;
+    }
+    grid.innerHTML = listings.map(cardHtml).join('');
+    grid.querySelectorAll('.listing-card').forEach((el) => {
+      el.addEventListener('click', () => location.href = `listing.html?id=${el.dataset.id}`);
+    });
+  } catch (err) {
+    grid.innerHTML = `<div class="empty-state">โหลดสินค้าไม่สำเร็จ: ${err.message}</div>`;
+  }
+}
+
+function cardHtml(l) {
+  const meta = CATEGORY_META[l.category] || { label: l.category, color: '#888' };
+  const img = l.images[0] || '';
+  return `
+    <div class="glass listing-card" data-id="${l.id}">
+      ${img ? `<img class="thumb" src="${escapeAttr(IMG_BASE + img)}" alt="${escapeAttr(l.title)}" />`
+            : `<div class="thumb"></div>`}
+      <div class="body">
+        <div class="cat-tag"><span class="swatch" style="background:${meta.color}"></span>${meta.label}</div>
+        <h3>${escapeHtml(l.title)}</h3>
+        <div class="price">${l.price.toLocaleString()} G</div>
+        <div class="seller">ผู้ขาย: ${escapeHtml(l.seller_username)}</div>
+      </div>
+    </div>`;
+}
+document.querySelectorAll('#filter-cats .chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#filter-cats .chip').forEach((c) => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeCategory = chip.dataset.cat;
+    loadListings();
+  });
+});
+document.getElementById('filter-apply').addEventListener('click', loadListings);
+
+refreshSessionUser().then(renderNav);
+loadListings();
+</script>
+</body>
+</html>

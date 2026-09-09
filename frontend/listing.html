@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>รายละเอียดสินค้า — G-Coin Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="aurora-bg"></div><div class="aurora-orb"></div><div class="liquid-grain"></div>
+<div class="topnav"><div id="nav-mount"></div></div>
+
+<div class="container">
+  <div id="listing-root" class="detail-layout" style="padding-top:36px;">
+    <div class="empty-state">กำลังโหลด...</div>
+  </div>
+</div>
+
+<footer>© 2026 G-Coin Market. All rights reserved.</footer>
+
+<script src="js/app.js"></script>
+<script>
+const listingId = new URLSearchParams(location.search).get('id');
+
+async function load() {
+  const root = document.getElementById('listing-root');
+  try {
+    const { listing } = await api(`/listings/${listingId}`);
+    const meta = CATEGORY_META[listing.category] || { label: listing.category, color: '#888' };
+    const isOwnListing = Session.user && Session.user.id === listing.seller_id;
+
+    root.innerHTML = `
+      <div class="detail-gallery">
+        ${
+          listing.images.length
+            ? listing.images.map((src) => `<img src="${IMG_BASE}${src}" alt="${escapeHtml(listing.title)}" />`).join('')
+            : `<div class="glass" style="aspect-ratio:4/3;"></div>`
+        }
+      </div>
+      <div class="glass detail-panel">
+        <div class="cat-tag"><span class="swatch" style="background:${meta.color}"></span>${meta.label}</div>
+        <h2>${escapeHtml(listing.title)}</h2>
+        <div class="price">${listing.price.toLocaleString()} G-Coins</div>
+        <p style="color:var(--text-1); white-space:pre-wrap;">${escapeHtml(listing.description || 'ไม่มีคำอธิบายเพิ่มเติม')}</p>
+        <p class="seller">ผู้ขาย: ${escapeHtml(listing.seller_username)}</p>
+        <div id="detail-status">${statusBadge(listing.status)}</div>
+        <div class="mt-24" id="action-area">
+          ${
+            listing.status !== 'active'
+              ? '<p style="color:var(--text-2)">สินค้านี้ไม่พร้อมจำหน่ายแล้ว</p>'
+              : isOwnListing
+              ? '<p style="color:var(--text-2)">นี่คือสินค้าของคุณเอง</p>'
+              : '<button class="btn btn-amber btn-block" id="buy-btn">ซื้อสินค้านี้</button>'
+          }
+        </div>
+        <div id="secret-area" class="mt-24"></div>
+      </div>
+    `;
+
+    const buyBtn = document.getElementById('buy-btn');
+    if (buyBtn) buyBtn.addEventListener('click', () => handleBuy(listing));
+
+    maybeShowSecret(listing);
+  } catch (err) {
+    root.innerHTML = `<div class="empty-state">โหลดสินค้าไม่สำเร็จ: ${err.message}</div>`;
+  }
+}
+
+async function handleBuy(listing) {
+  if (!requireLogin(`login.html?next=listing.html?id=${listing.id}`)) return;
+  const ok = await swalConfirm(
+    'ยืนยันการซื้อสินค้า',
+    `ระบบจะตัด ${listing.price.toLocaleString()} G-Coins จากยอดเงินของคุณ`,
+    'ยืนยันซื้อ'
+  );
+  if (!ok) return;
+
+  showOverlay('กำลังตรวจสอบยอดเงินและทำรายการ...');
+  try {
+    const result = await api('/orders', { method: 'POST', body: { listing_id: listing.id } });
+    hideOverlay();
+    await refreshSessionUser(); renderNav();
+    await swalSuccess('ซื้อสำเร็จ!', 'คุณสามารถดูข้อมูลบัญชีเกมได้ด้านล่าง');
+    load();
+  } catch (err) {
+    hideOverlay();
+    swalError('ทำรายการไม่สำเร็จ', err.message);
+  }
+}
+
+async function maybeShowSecret(listing) {
+  if (!Session.token) return;
+  const area = document.getElementById('secret-area');
+  try {
+    const { secret } = await api(`/listings/${listing.id}/secret`);
+    area.innerHTML = `
+      <div class="glass" style="padding:16px; border-color: var(--success);">
+        <div style="font-size:0.8rem; color: var(--success); margin-bottom:8px;">ข้อมูลบัญชี (มองเห็นได้เฉพาะคุณ)</div>
+        <pre style="white-space:pre-wrap; margin:0; font-family:inherit;">${escapeHtml(secret)}</pre>
+      </div>`;
+  } catch {
+    // Not entitled to see it yet — silently ignore (e.g. hasn't bought it).
+  }
+}
+
+refreshSessionUser().then(renderNav);
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>สมัครสมาชิก — G-Coin Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="aurora-bg"></div><div class="aurora-orb"></div><div class="liquid-grain"></div>
+<div class="auth-shell">
+  <form class="glass auth-card" id="register-form">
+    <h2>สมัครสมาชิก</h2>
+    <p class="auth-sub">สร้างบัญชีเพื่อเริ่มซื้อขายไอดีเกม</p>
+
+    <div class="field">
+      <label for="username">ชื่อผู้ใช้</label>
+      <input id="username" required minlength="3" />
+    </div>
+    <div class="field">
+      <label for="email">อีเมล</label>
+      <input id="email" type="email" placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label for="phone">เบอร์โทรศัพท์</label>
+      <input id="phone" type="tel" placeholder="08xxxxxxxx" />
+    </div>
+    <div class="hint" style="margin:-10px 0 6px;">กรอกอีเมลหรือเบอร์โทรศัพท์อย่างน้อย 1 ช่องทาง — ใช้สำหรับกู้คืนรหัสผ่านหากลืม</div>
+    <div class="field">
+      <label for="password">รหัสผ่าน</label>
+      <div class="pw-wrap">
+        <input id="password" type="password" required minlength="4" />
+        <button type="button" class="pw-toggle" id="pw-toggle">👁</button>
+      </div>
+      <div class="hint" style="margin-top:6px;">อย่างน้อย 4 ตัวอักษร</div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">สมัครสมาชิก</button>
+    <p class="auth-switch">มีบัญชีอยู่แล้ว? <a href="login.html">เข้าสู่ระบบ</a></p>
+  </form>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+document.getElementById('pw-toggle').addEventListener('click', () => {
+  const input = document.getElementById('password');
+  input.type = input.type === 'password' ? 'text' : 'password';
+});
+
+if (Session.token) location.href = 'index.html';
+
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const password = document.getElementById('password').value;
+  if (!email && !phone) {
+    return toast('กรุณากรอกอีเมลหรือเบอร์โทรศัพท์อย่างน้อย 1 ช่องทาง', 'error');
+  }
+  showOverlay('กำลังสร้างบัญชี...');
+  try {
+    const { token, user } = await api('/auth/register', { method: 'POST', body: { username, email, phone, password } });
+    Session.token = token;
+    Session.user = user;
+    toast('สมัครสมาชิกสำเร็จ');
+    location.href = 'index.html';
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    hideOverlay();
+  }
+});
+</script>
+</body>
+</html>

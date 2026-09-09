@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ลงขายสินค้า — G-Coin Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="aurora-bg"></div><div class="aurora-orb"></div><div class="liquid-grain"></div>
+<div class="topnav"><div id="nav-mount"></div></div>
+
+<div class="container">
+  <div class="page-head">
+    <h1>ลงขายสินค้า</h1>
+    <p style="color:var(--text-1)">ข้อมูลบัญชี/รหัสผ่านจะถูกเข้ารหัสและแสดงให้ผู้ซื้อเห็นก็ต่อเมื่อชำระเงินสำเร็จแล้วเท่านั้น</p>
+  </div>
+
+  <form class="glass form-card" id="sell-form">
+    <div class="field">
+      <label for="title">ชื่อสินค้า</label>
+      <input id="title" required placeholder="เช่น ไอดี Valorant Immortal สกินครบ" />
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label for="category">หมวดหมู่เกม</label>
+        <select id="category" required>
+          <option value="">เลือกหมวดหมู่</option>
+          <option value="roblox">Roblox</option>
+          <option value="rov">RoV</option>
+          <option value="valorant">Valorant</option>
+          <option value="mlbb">MLBB</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="price">ราคา (G-Coins)</label>
+        <input id="price" type="number" min="1" required placeholder="เช่น 1500" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="description">รายละเอียดสินค้า</label>
+      <textarea id="description" rows="4" placeholder="แรงค์, ไอเทม, สกิน, จุดเด่นของไอดี..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>รูปภาพประกอบ (สูงสุด 6 รูป, .jpg .jpeg .png .webp, ไม่เกิน 8MB ต่อไฟล์)</label>
+      <div class="upload-drop" id="upload-drop">คลิกเพื่อเลือกไฟล์ หรือ ลากไฟล์มาวางที่นี่</div>
+      <input type="file" id="images" accept=".jpg,.jpeg,.png,.webp" multiple hidden />
+      <div id="file-name-list" class="hint"></div>
+      <div class="preview-row" id="preview-row"></div>
+    </div>
+
+    <hr style="border-color: var(--glass-border); margin: 26px 0;" />
+    <h3 style="font-size:1rem;">ข้อมูลบัญชีสำหรับส่งมอบให้ผู้ซื้อ</h3>
+    <div class="field">
+      <label for="secret_username">Username เกม</label>
+      <input id="secret_username" placeholder="username ในเกม" />
+    </div>
+    <div class="field">
+      <label for="secret_password">Password เกม</label>
+      <input id="secret_password" type="password" placeholder="password ในเกม" />
+    </div>
+    <div class="field">
+      <label for="secret_notes">หมายเหตุเพิ่มเติม</label>
+      <textarea id="secret_notes" rows="2" placeholder="วิธีเปลี่ยนอีเมล, คำแนะนำการโอนย้ายบัญชี ฯลฯ"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block">ลงประกาศขาย</button>
+  </form>
+</div>
+
+<footer>© 2026 G-Coin Market. All rights reserved.</footer>
+
+<script src="js/app.js"></script>
+<script>
+if (!requireLogin()) { /* redirected */ }
+
+let selectedFiles = [];
+const dropZone = document.getElementById('upload-drop');
+const fileInput = document.getElementById('images');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = 'var(--glass-fill)'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.background = ''; });
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.style.background = '';
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(fileList) {
+  const files = Array.from(fileList);
+  const valid = [];
+  for (const f of files) {
+    if (f.size > 8 * 1024 * 1024) {
+      toast(`${f.name} มีขนาดเกิน 8MB`, 'error');
+      continue;
+    }
+    if (!/\.(jpg|jpeg|png|webp)$/i.test(f.name)) {
+      toast(`${f.name} ไม่ใช่ไฟล์รูปภาพที่รองรับ`, 'error');
+      continue;
+    }
+    valid.push(f);
+  }
+  selectedFiles = [...selectedFiles, ...valid].slice(0, 6);
+  renderFileState();
+}
+
+function renderFileState() {
+  document.getElementById('file-name-list').textContent =
+    selectedFiles.length ? `เลือกไฟล์แล้ว: ${selectedFiles.map((f) => f.name).join(', ')}` : '';
+  const previewRow = document.getElementById('preview-row');
+  previewRow.innerHTML = '';
+  selectedFiles.forEach((f) => {
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(f);
+    previewRow.appendChild(img);
+  });
+}
+
+document.getElementById('sell-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const title = document.getElementById('title').value.trim();
+  const category = document.getElementById('category').value;
+  const price = document.getElementById('price').value;
+  const description = document.getElementById('description').value.trim();
+  const su = document.getElementById('secret_username').value.trim();
+  const sp = document.getElementById('secret_password').value.trim();
+  const sn = document.getElementById('secret_notes').value.trim();
+
+  if (!su && !sp && !sn) {
+    toast('กรุณากรอกข้อมูลบัญชีสำหรับส่งมอบให้ผู้ซื้ออย่างน้อย 1 ช่อง', 'error');
+    return;
+  }
+
+  const form = new FormData();
+  form.append('title', title);
+  form.append('category', category);
+  form.append('price', price);
+  form.append('description', description);
+  form.append('secret_username', su);
+  form.append('secret_password', sp);
+  form.append('secret_notes', sn);
+  selectedFiles.forEach((f) => form.append('images', f));
+
+  showOverlay('กำลังอัปโหลดสินค้า...');
+  // Simulated progress while the upload/compression happens server-side.
+  let pct = 0;
+  const tick = setInterval(() => { pct = Math.min(90, pct + 8); setProgress(pct); }, 180);
+
+  try {
+    await api('/listings', { method: 'POST', body: form, isForm: true });
+    setProgress(100);
+    clearInterval(tick);
+    hideOverlay();
+    await swalSuccess('ลงประกาศขายสำเร็จ', 'สินค้าของคุณแสดงอยู่ในตลาดแล้ว');
+    location.href = 'account.html';
+  } catch (err) {
+    clearInterval(tick);
+    hideOverlay();
+    swalError('ลงประกาศขายไม่สำเร็จ', err.message);
+  }
+});
+</script>
+</body>
+</html>

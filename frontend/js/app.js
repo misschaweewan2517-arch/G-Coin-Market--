@@ -1,20 +1,18 @@
 // ===== Config =====
-// ตรวจจับ URL อัตโนมัติ: ถ้าอยู่บน Production ให้ชี้ไปที่ Render ตัวจริงล่าสุด (ขีดเดียว) ถ้ารันบน localhost ให้ใช้ port 4000
+// ล็อก URL ของ Render Production เป็นหลักเด็ดขาดเพื่อป้องกัน Failed to fetch บน Static Hosts (Netlify/Vercel)
 const RENDER_BACKEND_URL = 'https://g-coin-market-chuue-khaayeelkepliiyneela-vvpu.onrender.com';
 const LOCAL_BACKEND_URL = 'http://localhost:4000';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const BASE_HOST = isLocalhost ? LOCAL_BACKEND_URL : RENDER_BACKEND_URL;
 
-const API_BASE = window.API_BASE || `${BASE_HOST}/api`;
-const IMG_BASE = API_BASE.replace(/\/api\/?$/, ''); // e.g. https://g-coin-market...onrender.com
+// กำหนด API_BASE และลบ Slash ส่วนเกินออกเสมอ
+const API_BASE = (window.API_BASE || `${BASE_HOST}/api`).replace(/\/+$/, '');
+const IMG_BASE = API_BASE.replace(/\/api\/?$/, '');
 
-// Omise's PUBLIC key only (never the secret key) — safe to expose in frontend
-// code. Set this the same way as API_BASE when deploying: a small inline
-// <script> before js/app.js sets window.OMISE_PUBLIC_KEY before this runs.
 const OMISE_PUBLIC_KEY = window.OMISE_PUBLIC_KEY || '';
 
-// ===== Auth/session helpers (persisted so refresh/close doesn't log the user out) =====
+// ===== Auth/session helpers =====
 const Session = {
   get token() { return localStorage.getItem('gm_token'); },
   set token(v) { v ? localStorage.setItem('gm_token', v) : localStorage.removeItem('gm_token'); },
@@ -25,26 +23,38 @@ const Session = {
   clear() { this.token = null; this.user = null; },
 };
 
-// ===== API client =====
+// ===== API client (ปรับปรุงระบบ Fetching ให้เสถียรสูงสุด) =====
 async function api(path, { method = 'GET', body, isForm = false } = {}) {
   const headers = {};
   if (Session.token) headers['Authorization'] = `Bearer ${Session.token}`;
   if (!isForm && body) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: isForm ? body : body ? JSON.stringify(body) : undefined,
-  });
+  // ตรวจสอบและตัด / ซ้ำซ้อนของ Path
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const targetUrl = `${API_BASE}${cleanPath}`;
 
-  let data = null;
-  try { data = await res.json(); } catch { /* no body */ }
+  try {
+    const res = await fetch(targetUrl, {
+      method,
+      headers,
+      body: isForm ? body : body ? JSON.stringify(body) : undefined,
+    });
 
-  if (!res.ok) {
-    const message = (data && data.error) || `เกิดข้อผิดพลาด (${res.status})`;
-    throw new Error(message);
+    let data = null;
+    try { data = await res.json(); } catch { /* กรณี Response ไม่มี Body */ }
+
+    if (!res.ok) {
+      const message = (data && (data.message || data.error)) || `เกิดข้อผิดพลาด (${res.status})`;
+      throw new Error(message);
+    }
+    return data;
+  } catch (err) {
+    // ถ้าจับได้ว่าเป็น Failed to fetch ให้แจ้งเตือนผู้ใช้เรื่อง Cold Start ของ Render
+    if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+      throw new Error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (กำลังปลุกเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้งใน 20 วินาที)');
+    }
+    throw err;
   }
-  return data;
 }
 
 // ===== Toasts =====
@@ -95,7 +105,7 @@ function hideOverlay() {
   ensureOverlay().classList.remove('show');
 }
 
-// ===== Nav rendering (shared across pages) =====
+// ===== Nav rendering =====
 function renderNav() {
   const mount = document.getElementById('nav-mount');
   if (!mount) return;
@@ -119,7 +129,7 @@ function renderNav() {
       <div class="nav-right">
         ${
           user
-            ? `<div class="coin-pill"><span class="dot"></span> ${(user.balance_real + user.balance_bonus).toLocaleString()} G</div>
+            ? `<div class="coin-pill"><span class="dot"></span> ${((user.balance_real || 0) + (user.balance_bonus || 0)).toLocaleString()} G</div>
                ${user.role === 'admin' ? '<span class="badge-admin">ADMIN</span>' : ''}
                <button class="btn btn-sm btn-ghost" id="nav-logout">ออกจากระบบ</button>`
             : `<a href="login.html" class="btn btn-sm btn-ghost">เข้าสู่ระบบ</a>
@@ -167,7 +177,7 @@ function requireAdminPage() {
   return true;
 }
 
-// Category display metadata used across pages
+// Category display metadata
 const CATEGORY_META = {
   roblox: { label: 'Roblox', color: 'var(--cat-roblox)' },
   rov: { label: 'RoV', color: 'var(--cat-rov)' },
@@ -183,16 +193,12 @@ function statusBadge(status) {
   return `<span class="status-badge status-${status}">${map[status] || status}</span>`;
 }
 
-// Escapes any user-supplied text before it's inserted via innerHTML, anywhere
-// in the app (listing titles, bank details, admin reasons, etc. are all
-// attacker-controllable strings from someone's point of view — never trust
-// them unescaped in HTML).
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function escapeAttr(s) { return escapeHtml(s); }
 
-// ===== SweetAlert2 wrappers (liquid-glass themed) — used for important confirmations =====
+// ===== SweetAlert2 wrappers =====
 function swalSuccess(title, text) {
   if (typeof Swal === 'undefined') return toast(title, 'success');
   return Swal.fire({

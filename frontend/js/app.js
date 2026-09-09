@@ -1,6 +1,6 @@
 // ===== Config =====
-// ตรวจจับ URL อัตโนมัติ: ถ้าออนไลน์บน Production ให้ชี้ไปที่ Render ถ้าอยู่บน เครื่องตัวเอง (localhost) ให้ชี้ไปที่ port 4000
-const RENDER_BACKEND_URL = 'https://g-coin-market--chuue-khaayeelkepliyneela-vvpu.onrender.com';
+// ตรวจจับ URL อัตโนมัติ: ถ้าอยู่บน Production ให้ชี้ไปที่ Render ตัวจริงล่าสุด (ขีดเดียว) ถ้ารันบน localhost ให้ใช้ port 4000
+const RENDER_BACKEND_URL = 'https://g-coin-market-chuue-khaayeelkepliiyneela-vvpu.onrender.com';
 const LOCAL_BACKEND_URL = 'http://localhost:4000';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';

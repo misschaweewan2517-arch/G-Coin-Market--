@@ -4,11 +4,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 
-// เรียกไฟล์ db.js ที่อยู่ในโฟลเดอร์ src เดียวกัน
+// เรียกไฟล์ db.js ที่อยู่ใน src เดียวกัน
 require('./db'); 
 
-// เรียก rateLimiters.js จากโฟลเดอร์ payment ที่อยู่ใน src
-const { apiLimiter, authLimiter, moneyLimiter, otpLimiter } = require('./payment/rateLimiters');
+// เรียก rateLimiters.js จากโฟลเดอร์ src เดียวกัน (ไม่ต้องมี /payment)
+const { apiLimiter, authLimiter, moneyLimiter, otpLimiter } = require('./rateLimiters');
 
 // เรียกไฟล์ในโฟลเดอร์ routes
 const authRoutes = require('./routes/auth');
@@ -22,12 +22,12 @@ const webhookRoutes = require('./routes/webhooks');
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
-// Security headers.
+// Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-// CORS allow-list.
+// CORS allow-list
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || '*').split(',').map((s) => s.trim());
 app.use(
   cors({
@@ -37,7 +37,7 @@ app.use(
 );
 
 app.use(express.json({ limit: '2mb' }));
-// ชี้พาธโฟลเดอร์ uploads ไปเก็บที่ backend/uploads
+// ชี้พาธโฟลเดอร์ uploads ถอยขึ้นไปเก็บไว้ใน backend/uploads
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // General rate limit & specific rate limiters

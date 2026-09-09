@@ -4,19 +4,20 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 
-// ถอย 1 ชั้นไปหา db.js และ rateLimiters.js ในโฟลเดอร์ src
+// เรียกไฟล์ db.js ที่อยู่ในโฟลเดอร์ src เดียวกัน
 require('./db'); 
 
-const { apiLimiter, authLimiter, moneyLimiter, otpLimiter } = require('../payment/rateLimiters');
+// เรียก rateLimiters.js จากโฟลเดอร์ payment ที่อยู่ใน src
+const { apiLimiter, authLimiter, moneyLimiter, otpLimiter } = require('./payment/rateLimiters');
 
-// เรียกไฟล์ Route ต่างๆ ในโฟลเดอร์เดียวกัน
-const authRoutes = require('./auth');
-const walletRoutes = require('./wallet');
-const listingRoutes = require('./listings');
-const orderRoutes = require('./orders');
-const withdrawalRoutes = require('./withdrawals');
-const adminRoutes = require('./admin');
-const webhookRoutes = require('./webhooks');
+// เรียกไฟล์ในโฟลเดอร์ routes
+const authRoutes = require('./routes/auth');
+const walletRoutes = require('./routes/wallet');
+const listingRoutes = require('./routes/listings');
+const orderRoutes = require('./routes/orders');
+const withdrawalRoutes = require('./routes/withdrawals');
+const adminRoutes = require('./routes/admin');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -36,8 +37,8 @@ app.use(
 );
 
 app.use(express.json({ limit: '2mb' }));
-// ชี้พาธโฟลเดอร์ uploads ถอยขึ้นไปเก็บที่โฟลเดอร์หลัก backend/uploads
-app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')));
+// ชี้พาธโฟลเดอร์ uploads ไปเก็บที่ backend/uploads
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // General rate limit & specific rate limiters
 app.use('/api', apiLimiter);

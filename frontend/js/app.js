@@ -1,6 +1,14 @@
 // ===== Config =====
-const API_BASE = window.API_BASE || 'http://localhost:4000/api';
-const IMG_BASE = API_BASE.replace(/\/api\/?$/, ''); // e.g. http://localhost:4000
+// ตรวจจับ URL อัตโนมัติ: ถ้าออนไลน์บน Production ให้ชี้ไปที่ Render ถ้าอยู่บน เครื่องตัวเอง (localhost) ให้ชี้ไปที่ port 4000
+const RENDER_BACKEND_URL = 'https://g-coin-market--chuue-khaayeelkepliyneela-vvpu.onrender.com';
+const LOCAL_BACKEND_URL = 'http://localhost:4000';
+
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const BASE_HOST = isLocalhost ? LOCAL_BACKEND_URL : RENDER_BACKEND_URL;
+
+const API_BASE = window.API_BASE || `${BASE_HOST}/api`;
+const IMG_BASE = API_BASE.replace(/\/api\/?$/, ''); // e.g. https://g-coin-market...onrender.com
+
 // Omise's PUBLIC key only (never the secret key) — safe to expose in frontend
 // code. Set this the same way as API_BASE when deploying: a small inline
 // <script> before js/app.js sets window.OMISE_PUBLIC_KEY before this runs.

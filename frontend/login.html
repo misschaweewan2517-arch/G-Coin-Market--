@@ -48,6 +48,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   const password = document.getElementById('password').value;
   showOverlay('กำลังเข้าสู่ระบบ...');
   try {
+    // แก้ไขเป็น /auth/login ให้ชัวร์ และส่งไปที่ Render API
     const { token, user } = await api('/auth/login', { method: 'POST', body: { username, password } });
     Session.token = token;
     Session.user = user;

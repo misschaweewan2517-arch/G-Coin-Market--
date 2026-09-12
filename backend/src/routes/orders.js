@@ -69,20 +69,25 @@ router.post('/', requireAuth, (req, res) => {
 });
 
 router.get('/mine', requireAuth, (req, res) => {
+  // ดึงรายการที่ซื้อ (เพิ่ม listings.id AS listing_id เพื่อให้ปุ่มดูรหัสผ่านฝั่ง Frontend ใช้งานได้)
   const bought = db
     .prepare(
-      `SELECT orders.*, listings.title, listings.category FROM orders
+      `SELECT orders.*, listings.title, listings.category, listings.id AS listing_id 
+       FROM orders
        JOIN listings ON listings.id = orders.listing_id
        WHERE orders.buyer_id = ? ORDER BY orders.id DESC`
     )
     .all(req.user.id);
+
   const sold = db
     .prepare(
-      `SELECT orders.*, listings.title, listings.category FROM orders
+      `SELECT orders.*, listings.title, listings.category, listings.id AS listing_id 
+       FROM orders
        JOIN listings ON listings.id = orders.listing_id
        WHERE orders.seller_id = ? ORDER BY orders.id DESC`
     )
     .all(req.user.id);
+
   res.json({ bought, sold });
 });
 

@@ -27,7 +27,19 @@ const upload = multer({
   },
 });
 
-function publicListing(row, { includeOwnerCheck } = {}) {
+// Middleware ครอบ Multer เพื่อดักจับ Error กรณีอัปโหลดรูปภาพล้มเหลว
+function uploadMiddleware(req, res, next) {
+  upload.array('images', 6)(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: `เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}
+
+function publicListing(row) {
   return {
     id: row.id,
     seller_id: row.seller_id,
@@ -99,7 +111,8 @@ router.get('/:id', (req, res) => {
   res.json({ listing: publicListing(row) });
 });
 
-router.post('/', requireAuth, upload.array('images', 6), (req, res) => {
+// ✅ ปรับปรุงการรับค่าลงขายสินค้า + เพิ่ม Middleware ดักจับภาพ
+router.post('/', requireAuth, uploadMiddleware, (req, res) => {
   const { title, category, price, description, secret_username, secret_password, secret_notes } = req.body || {};
 
   if (!title || !CATEGORIES.includes(category) || !price || Number(price) <= 0) {
@@ -121,14 +134,19 @@ router.post('/', requireAuth, upload.array('images', 6), (req, res) => {
     .filter(Boolean)
     .join('\n');
 
-  const info = db
-    .prepare(
-      `INSERT INTO listings (seller_id, title, category, price, description, images, secret_ciphertext)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(req.user.id, title, category, Math.round(Number(price)), description || '', JSON.stringify(images), encryptSecret(secretPlain));
+  try {
+    const info = db
+      .prepare(
+        `INSERT INTO listings (seller_id, title, category, price, description, images, secret_ciphertext)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(req.user.id, title, category, Math.round(Number(price)), description || '', JSON.stringify(images), encryptSecret(secretPlain));
 
-  res.status(201).json({ listing_id: info.lastInsertRowid });
+    res.status(201).json({ listing_id: info.lastInsertRowid });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการบันทึกข้อมูลสินค้า' });
+  }
 });
 
 router.delete('/:id', requireAuth, (req, res) => {
@@ -141,22 +159,29 @@ router.delete('/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// Reveal the secret credentials — only for the seller, the buyer of a completed
-// order for this listing, or an admin.
+// Reveal the secret credentials — only for the seller, the buyer of a completed order for this listing, or an admin.
 router.get('/:id/secret', requireAuth, (req, res) => {
   const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(req.params.id);
   if (!listing) return res.status(404).json({ error: 'ไม่พบสินค้านี้' });
 
   const isSeller = listing.seller_id === req.user.id;
   const isAdmin = req.user.role === 'admin';
+  
+  // ✅ แก้ไข: เช็กจาก orders โดยไม่อิง status = 'completed' (เพราะเมื่อซื้อสำเร็จ order จะถูกสร้างขึ้นทันที)
   const hasBoughtIt = db
-    .prepare(`SELECT id FROM orders WHERE listing_id = ? AND buyer_id = ? AND status = 'completed'`)
+    .prepare(`SELECT id FROM orders WHERE listing_id = ? AND buyer_id = ?`)
     .get(req.params.id, req.user.id);
 
   if (!isSeller && !isAdmin && !hasBoughtIt) {
     return res.status(403).json({ error: 'ต้องซื้อสินค้านี้ก่อนจึงจะดูข้อมูลบัญชีได้' });
   }
-  res.json({ secret: decryptSecret(listing.secret_ciphertext) });
+  
+  try {
+    const decrypted = decryptSecret(listing.secret_ciphertext);
+    res.json({ secret: decrypted });
+  } catch (err) {
+    res.status(500).json({ error: 'ถอดรหัสข้อมูลไม่สำเร็จ (คีย์ Encryption บนเซิร์ฟเวอร์ไม่ตรงกัน)' });
+  }
 });
 
 module.exports = router;

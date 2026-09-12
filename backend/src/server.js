@@ -37,6 +37,9 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ===== เพิ่มจุดนี้: เปิดสิทธิ์ให้เข้าถึงโฟลเดอร์รูปภาพ /uploads =====
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 // ===== 3. Routes สำหรับ API (ถอด Limiter ออกเพื่อป้องกัน IP Block บน Render) =====
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);

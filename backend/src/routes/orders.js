@@ -73,14 +73,14 @@ router.get('/mine', requireAuth, (req, res) => {
     .prepare(
       `SELECT orders.*, listings.title, listings.category FROM orders
        JOIN listings ON listings.id = orders.listing_id
-       WHERE buyer_id = ? ORDER BY orders.id DESC`
+       WHERE orders.buyer_id = ? ORDER BY orders.id DESC`
     )
     .all(req.user.id);
   const sold = db
     .prepare(
       `SELECT orders.*, listings.title, listings.category FROM orders
        JOIN listings ON listings.id = orders.listing_id
-       WHERE seller_id = ? ORDER BY orders.id DESC`
+       WHERE orders.seller_id = ? ORDER BY orders.id DESC`
     )
     .all(req.user.id);
   res.json({ bought, sold });

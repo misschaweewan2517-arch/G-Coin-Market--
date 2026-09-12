@@ -1,11 +1,12 @@
 // ===== Config =====
-// ล็อกให้ชี้ไปที่ Render Backend โดยตรง ตัด Logic การเช็ก Localhost ออกทั้งหมด
+// ล็อกให้ชี้ไปที่ Render Backend โดยตรง
 const RENDER_BACKEND_URL = 'https://g-coin-market-chuue-khaayeelkepliiyneela-vvpu.onrender.com';
 
 const API_BASE = `${RENDER_BACKEND_URL}/api`;
 const IMG_BASE = RENDER_BACKEND_URL;
 
-const OMISE_PUBLIC_KEY = window.OMISE_PUBLIC_KEY || '';
+// ใส่ Omise Public Key (pkey_test_...) ตรงนี้เพื่อใช้งาน Omise JS ใน Frontend
+const OMISE_PUBLIC_KEY = window.OMISE_PUBLIC_KEY || 'pkey_test_xxxxxxxxxxxxxxxxxxxx';
 
 // ===== Auth/session helpers =====
 const Session = {
@@ -223,6 +224,69 @@ function swalConfirm(title, text, confirmText = 'ยืนยัน') {
       confirmButton: 'swal-glass-confirm', cancelButton: 'swal-glass-cancel',
     },
   }).then((r) => r.isConfirmed);
+}
+
+// ===== PROMPTPAY DEPOSIT & POLLING HELPER (เพิ่มใหม่) =====
+let depositPollInterval = null;
+
+async function startPromptPayDeposit(amount) {
+  if (!amount || amount < 10) {
+    return swalError('ข้อผิดพลาด', 'ยอดเติมเงินขั้นต่ำคือ 10 บาท');
+  }
+
+  showOverlay('กำลังสร้าง QR Code...');
+  try {
+    // 1. ส่ง request ขอ QR Code ไปที่ Backend
+    const data = await api('/wallet/deposit/create', {
+      method: 'POST',
+      body: { amount: parseFloat(amount), method: 'promptpay' },
+    });
+    hideOverlay();
+
+    if (!data.qr_image_url || !data.deposit_id) {
+      throw new Error('ไม่สามารถดึงข้อมูล QR Code ได้');
+    }
+
+    // 2. แสดง Modal แสดง QR Code ด้วย SweetAlert2
+    Swal.fire({
+      title: 'สแกนเพื่อชำระเงิน',
+      html: `
+        <p style="margin-bottom:12px;">ยอดชำระ: <b>${amount} บาท</b></p>
+        <div style="background:#fff; padding:15px; border-radius:12px; display:inline-block;">
+          <img src="${data.qr_image_url}" alt="PromptPay QR Code" style="width:220px; height:220px; display:block;" />
+        </div>
+        <p style="margin-top:12px; font-size:13px; color:#aaa;">ระบบจะตรวจสอบการชำระเงินอัตโนมัติ กรุณาอย่าเพิ่งปิดหน้าต่างนี้</p>
+      `,
+      showConfirmButton: false,
+      showCloseButton: true,
+      allowOutsideClick: false,
+      willClose: () => {
+        if (depositPollInterval) clearInterval(depositPollInterval);
+      }
+    });
+
+    // 3. เริ่มทำ Polling วนเช็กสถานะการจ่ายเงินทุกๆ 3 วินาที
+    if (depositPollInterval) clearInterval(depositPollInterval);
+    depositPollInterval = setInterval(async () => {
+      try {
+        const res = await api(`/wallet/deposit/${data.deposit_id}/status`);
+        if (res.status === 'completed') {
+          clearInterval(depositPollInterval);
+          Swal.close();
+          await refreshSessionUser();
+          renderNav();
+          swalSuccess('เติมเงินสำเร็จ!', `ได้รับ ${amount} G-Coins เรียบร้อยแล้ว`);
+          if (typeof loadAccountData === 'function') loadAccountData(); // โหลดหน้าบัญชีใหม่ถ้าอยู่ในหน้า account.html
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 3000);
+
+  } catch (err) {
+    hideOverlay();
+    swalError('เกิดข้อผิดพลาด', err.message);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', renderNav);

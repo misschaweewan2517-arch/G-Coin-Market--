@@ -1,12 +1,10 @@
 // ===== Config =====
-// ล็อก URL ของ Render Production เป็นหลักเด็ดขาดเพื่อป้องกัน Failed to fetch บน Static Hosts (Netlify/Vercel)
 const RENDER_BACKEND_URL = 'https://g-coin-market-chuue-khaayeelkepliiyneela-vvpu.onrender.com';
 const LOCAL_BACKEND_URL = 'http://localhost:4000';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const BASE_HOST = isLocalhost ? LOCAL_BACKEND_URL : RENDER_BACKEND_URL;
 
-// กำหนด API_BASE และลบ Slash ส่วนเกินออกเสมอ
 const API_BASE = (window.API_BASE || `${BASE_HOST}/api`).replace(/\/+$/, '');
 const IMG_BASE = API_BASE.replace(/\/api\/?$/, '');
 
@@ -20,16 +18,15 @@ const Session = {
     try { return JSON.parse(localStorage.getItem('gm_user') || 'null'); } catch { return null; }
   },
   set user(v) { v ? localStorage.setItem('gm_user', JSON.stringify(v)) : localStorage.removeItem('gm_user'); },
-  clear() { this.token = null; this.user = null; },
+  clear() { localStorage.removeItem('gm_token'); localStorage.removeItem('gm_user'); },
 };
 
-// ===== API client (ปรับปรุงระบบ Fetching ให้เสถียรสูงสุด) =====
-async function api(path, { method = 'GET', body, isForm = false } = {}) {
-  const headers = {};
+// ===== API client =====
+async function api(path, { method = 'GET', body, isForm = false, headers: customHeaders = {} } = {}) {
+  const headers = { ...customHeaders };
   if (Session.token) headers['Authorization'] = `Bearer ${Session.token}`;
   if (!isForm && body) headers['Content-Type'] = 'application/json';
 
-  // ตรวจสอบและตัด / ซ้ำซ้อนของ Path
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const targetUrl = `${API_BASE}${cleanPath}`;
 
@@ -41,7 +38,7 @@ async function api(path, { method = 'GET', body, isForm = false } = {}) {
     });
 
     let data = null;
-    try { data = await res.json(); } catch { /* กรณี Response ไม่มี Body */ }
+    try { data = await res.json(); } catch { /* กรณีไร้ body */ }
 
     if (!res.ok) {
       const message = (data && (data.message || data.error)) || `เกิดข้อผิดพลาด (${res.status})`;
@@ -49,7 +46,6 @@ async function api(path, { method = 'GET', body, isForm = false } = {}) {
     }
     return data;
   } catch (err) {
-    // ถ้าจับได้ว่าเป็น Failed to fetch ให้แจ้งเตือนผู้ใช้เรื่อง Cold Start ของ Render
     if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
       throw new Error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (กำลังปลุกเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้งใน 20 วินาที)');
     }

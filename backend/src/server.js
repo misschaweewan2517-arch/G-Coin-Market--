@@ -7,9 +7,6 @@ const path = require('path');
 // เรียกไฟล์ db.js
 require('./db'); 
 
-// เรียก rateLimiters.js
-const { apiLimiter, authLimiter, moneyLimiter, otpLimiter } = require('./rateLimiters');
-
 // เรียกไฟล์ในโฟลเดอร์ routes
 const authRoutes = require('./routes/auth');
 const walletRoutes = require('./routes/wallet');
@@ -21,23 +18,14 @@ const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 
-// Trust proxy สำหรับ Render/Heroku ให้รวบรวม IP ถูกต้อง
+// Trust proxy สำหรับ Render/Heroku (ตั้งค่า 1 หรือ true)
 app.set('trust proxy', 1);
 
-// ===== 1. ปลดล็อก CORS สมบูรณ์แบบ (ต้องอยู่บนสุดเสมอ) =====
-app.use(
-  cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false
-  })
-);
-
-// จัดการ OPTIONS Preflight Requests ล่วงหน้าเพื่อไม่ให้ติด CORS Block
+// ===== 1. ปลดล็อก CORS สมบูรณ์แบบ =====
+app.use(cors());
 app.options('*', cors());
 
-// ===== 2. Helmet Security Headers (เปิดทางให้ API) =====
+// ===== 2. Helmet Security Headers =====
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -49,9 +37,9 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===== 3. Routes สำหรับ API (ย้ายขึ้นมาก่อน Rate Limit หนาๆ เพื่อป้องกัน Failed to Fetch) =====
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/wallet', moneyLimiter, walletRoutes);
+// ===== 3. Routes สำหรับ API (ถอด Limiter ออกเพื่อป้องกัน IP Block บน Render) =====
+app.use('/api/auth', authRoutes);
+app.use('/api/wallet', walletRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);

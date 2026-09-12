@@ -39,23 +39,26 @@ document.getElementById('pw-toggle').addEventListener('click', () => {
   input.type = input.type === 'password' ? 'text' : 'password';
 });
 
-// If already logged in, skip straight past this page.
 if (Session.token) location.href = 'index.html';
 
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value;
+  
   showOverlay('กำลังเข้าสู่ระบบ...');
   try {
-    // แก้ไขเป็น /auth/login ให้ชัวร์ และส่งไปที่ Render API
-    const { token, user } = await api('/auth/login', { method: 'POST', body: { username, password } });
-    Session.token = token;
-    Session.user = user;
-    toast(`ยินดีต้อนรับ ${user.username}`);
-    location.href = 'index.html';
+    const data = await api('/auth/login', { 
+      method: 'POST', 
+      body: { username, password } 
+    });
+    
+    Session.token = data.token;
+    Session.user = data.user;
+    toast(`ยินดีต้อนรับ ${data.user.username}`);
+    setTimeout(() => { location.href = 'index.html'; }, 800);
   } catch (err) {
-    toast(err.message, 'error');
+    swalError('เข้าสู่ระบบไม่สำเร็จ', err.message);
   } finally {
     hideOverlay();
   }

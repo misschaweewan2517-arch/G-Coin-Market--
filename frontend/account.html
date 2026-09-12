@@ -200,7 +200,7 @@ function stopDepositPolling() {
 function pollDepositStatus(depositId, amount) {
   const statusText = document.getElementById('deposit-status-text');
   let elapsedMs = 0;
-  const TIMEOUT_MS = 5 * 60 * 1000; // stop polling after 5 minutes; QR/charge will have expired at the gateway too
+  const TIMEOUT_MS = 5 * 60 * 1000;
 
   stopDepositPolling();
   depositPollTimer = setInterval(async () => {
@@ -222,7 +222,7 @@ function pollDepositStatus(depositId, amount) {
         statusText.textContent = 'หมดเวลารอการชำระเงิน กรุณาทำรายการใหม่';
       }
     } catch {
-      // transient network hiccup while polling — just try again next tick
+      // transient network hiccup
     }
   }, 3000);
 }
@@ -325,11 +325,41 @@ async function loadMyListings() {
     </div>`).join('') || '<p style="color:var(--text-2); padding:14px 0;">คุณยังไม่มีสินค้าที่กำลังขาย</p>';
 }
 
+// ฟังก์ชันสำหรับเรียกดูรหัสผ่าน/ข้อมูลลับของสินค้าที่ซื้อไปแล้ว
+async function viewSecret(listingId) {
+  try {
+    const res = await api(`/listings/${listingId}/secret`);
+    Swal.fire({
+      title: 'ข้อมูลบัญชี / รหัสผ่าน',
+      html: `<div style="text-align: left; background: rgba(0,0,0,0.4); padding: 14px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; word-break: break-all; color: #34e4ea; font-size: 0.95rem;">${escapeHtml(res.secret)}</div>`,
+      confirmButtonText: 'คัดลอกและปิด',
+      customClass: { popup: 'swal-glass-popup', title: 'swal-glass-title', confirmButton: 'swal-glass-confirm' }
+    }).then(() => {
+      navigator.clipboard.writeText(res.secret);
+      toast('คัดลอกข้อมูลเรียบร้อยแล้ว');
+    });
+  } catch (err) {
+    swalError('ไม่สามารถดึงข้อมูลได้', err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+  }
+}
+
 async function loadOrders() {
   const { bought, sold } = await api('/orders/mine');
+  
+  // เพิ่มปุ่มดูรหัสผ่านสำหรับรายการสินค้าที่ซื้อแล้ว
   document.getElementById('orders-bought').innerHTML = bought.map((o) => `
-    <div class="list-row"><div><b>${escapeHtml(o.title)}</b><br/><span style="color:var(--text-2); font-size:0.85rem;">${o.created_at}</span></div><div>${o.price.toLocaleString()} G</div></div>
+    <div class="list-row" style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <b>${escapeHtml(o.title)}</b><br/>
+        <span style="color:var(--text-2); font-size:0.85rem;">${o.created_at}</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-weight:600;">${o.price.toLocaleString()} G</span>
+        <button class="btn btn-sm btn-amber" onclick="viewSecret(${o.listing_id || o.id})">🔑 ดูรหัสผ่าน</button>
+      </div>
+    </div>
   `).join('') || '<p style="color:var(--text-2); padding:14px 0;">ยังไม่มีประวัติการซื้อ</p>';
+
   document.getElementById('orders-sold').innerHTML = sold.map((o) => `
     <div class="list-row"><div><b>${escapeHtml(o.title)}</b><br/><span style="color:var(--text-2); font-size:0.85rem;">${o.created_at}</span></div><div>${o.price.toLocaleString()} G</div></div>
   `).join('') || '<p style="color:var(--text-2); padding:14px 0;">ยังไม่มีประวัติการขาย</p>';

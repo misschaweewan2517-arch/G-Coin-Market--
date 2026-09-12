@@ -1,12 +1,9 @@
 // ===== Config =====
+// ล็อกให้ชี้ไปที่ Render Backend โดยตรง ตัด Logic การเช็ก Localhost ออกทั้งหมด
 const RENDER_BACKEND_URL = 'https://g-coin-market-chuue-khaayeelkepliiyneela-vvpu.onrender.com';
-const LOCAL_BACKEND_URL = 'http://localhost:4000';
 
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const BASE_HOST = isLocalhost ? LOCAL_BACKEND_URL : RENDER_BACKEND_URL;
-
-const API_BASE = (window.API_BASE || `${BASE_HOST}/api`).replace(/\/+$/, '');
-const IMG_BASE = API_BASE.replace(/\/api\/?$/, '');
+const API_BASE = `${RENDER_BACKEND_URL}/api`;
+const IMG_BASE = RENDER_BACKEND_URL;
 
 const OMISE_PUBLIC_KEY = window.OMISE_PUBLIC_KEY || '';
 

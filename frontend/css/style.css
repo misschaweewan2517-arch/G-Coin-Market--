@@ -79,8 +79,6 @@ button, input, select, textarea { font-family: inherit; }
   right: -140px;
   animation: auroraDriftB 32s ease-in-out infinite;
 }
-/* A third, smaller blob for extra depth — real element so it can carry its
-   own independent drift timing distinct from the two pseudo-elements. */
 .aurora-orb {
   position: fixed;
   width: 420px;
@@ -111,7 +109,6 @@ button, input, select, textarea { font-family: inherit; }
   50% { transform: translate(-50%, -50%) translate(80px, -60px) scale(1.2); }
 }
 
-/* Slow-drifting starfield of tiny points, purely decorative, sits behind content. */
 .liquid-grain {
   position: fixed;
   inset: 0;
@@ -146,8 +143,6 @@ button, input, select, textarea { font-family: inherit; }
   overflow: hidden;
 }
 .glass:hover { border-color: var(--glass-border-hi); }
-/* A soft light sweep across the glass on hover — reinforces the "liquid" feel
-   without being distracting (fires once per hover, not looping). */
 .glass::before {
   content: '';
   position: absolute;
@@ -465,4 +460,13 @@ footer { border-top: 1px solid var(--glass-border); padding: 26px 0; margin-top:
   color: var(--text-0) !important;
   border-radius: var(--radius-md) !important;
   box-shadow: none !important;
+}
+
+/* ===== Fix Image Aspect Ratio & Distortion ===== */
+.listing-card .thumb,
+.detail-gallery img,
+#listing-image,
+.preview-row img {
+  object-fit: contain !important;
+  background-color: rgba(0, 0, 0, 0.4);
 }
